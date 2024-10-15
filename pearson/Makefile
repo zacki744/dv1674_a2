@@ -18,4 +18,4 @@ vector: vector.hpp vector.cpp
 	$(CXX) $(CXXFLAGS) -c vector.cpp -o vector.o
 
 clean:
-	rm -rf pearson *.o *.dSYM 2> /dev/null
+	rm -rf pearson *.o *.dSYM 2> /dev/null *.txt res* *.out
