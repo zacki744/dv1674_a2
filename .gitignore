@@ -1,0 +1,10 @@
+*.o
+*.txt
+*.out
+pearson/output_*
+pearson/valgrind_*
+pearson/pearson
+blur/test_*
+blur/blur
+blur/valgrind_output
+callgrind.*
