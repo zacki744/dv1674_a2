@@ -1,24 +1,23 @@
-/*
-Author: David Holmqvist <daae19@student.bth.se>
-*/
-
 #include "filters.hpp"
 #include "matrix.hpp"
 #include "ppm.hpp"
 #include <cmath>
+#include <vector>
 
 namespace Filter
 {
-
     namespace Gauss
     {
-        void get_weights(int n, double *weights_out)
+        // Precompute Gaussian weights once for a given radius.
+        std::vector<double> get_weights(int n)
         {
-            for (auto i{0}; i <= n; i++)
+            std::vector<double> weights(n + 1);
+            for (int i = 0; i <= n; ++i)
             {
-                double x{static_cast<double>(i) * max_x / n};
-                weights_out[i] = exp(-x * x * pi);
+                double x = static_cast<double>(i) * max_x / n;
+                weights[i] = exp(-x * x * pi);
             }
+            return weights;
         }
     }
 
@@ -27,37 +26,37 @@ namespace Filter
         Matrix scratch{PPM::max_dimension};
         auto dst{m};
 
-        for (auto x{0}; x < dst.get_x_size(); x++)
+        // Precompute Gaussian weights once.
+        std::vector<double> weights = Gauss::get_weights(radius);
+
+        // Horizontal blur pass
+        for (int y = 0; y < dst.get_y_size(); ++y)
         {
-            for (auto y{0}; y < dst.get_y_size(); y++)
+            for (int x = 0; x < dst.get_x_size(); ++x)
             {
-                double w[Gauss::max_radius]{};
-                Gauss::get_weights(radius, w);
+                double r = weights[0] * dst.r(x, y);
+                double g = weights[0] * dst.g(x, y);
+                double b = weights[0] * dst.b(x, y);
+                double n = weights[0];
 
-                // unsigned char Matrix::r(unsigned x, unsigned y) const
-                // {
-                //     return R[y * x_size + x];
-                // }
-
-                auto r{w[0] * dst.r(x, y)}, g{w[0] * dst.g(x, y)}, b{w[0] * dst.b(x, y)}, n{w[0]};
-
-                for (auto wi{1}; wi <= radius; wi++)
+                // Process neighboring pixels horizontally.
+                for (int wi = 1; wi <= radius; ++wi)
                 {
-                    auto wc{w[wi]};
-                    auto x2{x - wi};
-                    if (x2 >= 0)
+                    double wc = weights[wi];
+                    int x_left = x - wi;
+                    if (x_left >= 0)
                     {
-                        r += wc * dst.r(x2, y);
-                        g += wc * dst.g(x2, y);
-                        b += wc * dst.b(x2, y);
+                        r += wc * dst.r(x_left, y);
+                        g += wc * dst.g(x_left, y);
+                        b += wc * dst.b(x_left, y);
                         n += wc;
                     }
-                    x2 = x + wi;
-                    if (x2 < dst.get_x_size())
+                    int x_right = x + wi;
+                    if (x_right < dst.get_x_size())
                     {
-                        r += wc * dst.r(x2, y);
-                        g += wc * dst.g(x2, y);
-                        b += wc * dst.b(x2, y);
+                        r += wc * dst.r(x_right, y);
+                        g += wc * dst.g(x_right, y);
+                        b += wc * dst.b(x_right, y);
                         n += wc;
                     }
                 }
@@ -67,32 +66,34 @@ namespace Filter
             }
         }
 
-        for (auto x{0}; x < dst.get_x_size(); x++)
+        // Vertical blur pass
+        for (int x = 0; x < dst.get_x_size(); ++x)
         {
-            for (auto y{0}; y < dst.get_y_size(); y++)
+            for (int y = 0; y < dst.get_y_size(); ++y)
             {
-                double w[Gauss::max_radius]{};
-                Gauss::get_weights(radius, w);
+                double r = weights[0] * scratch.r(x, y);
+                double g = weights[0] * scratch.g(x, y);
+                double b = weights[0] * scratch.b(x, y);
+                double n = weights[0];
 
-                auto r{w[0] * scratch.r(x, y)}, g{w[0] * scratch.g(x, y)}, b{w[0] * scratch.b(x, y)}, n{w[0]};
-
-                for (auto wi{1}; wi <= radius; wi++)
+                // Process neighboring pixels vertically.
+                for (int wi = 1; wi <= radius; ++wi)
                 {
-                    auto wc{w[wi]};
-                    auto y2{y - wi};
-                    if (y2 >= 0)
+                    double wc = weights[wi];
+                    int y_up = y - wi;
+                    if (y_up >= 0)
                     {
-                        r += wc * scratch.r(x, y2);
-                        g += wc * scratch.g(x, y2);
-                        b += wc * scratch.b(x, y2);
+                        r += wc * scratch.r(x, y_up);
+                        g += wc * scratch.g(x, y_up);
+                        b += wc * scratch.b(x, y_up);
                         n += wc;
                     }
-                    y2 = y + wi;
-                    if (y2 < dst.get_y_size())
+                    int y_down = y + wi;
+                    if (y_down < dst.get_y_size())
                     {
-                        r += wc * scratch.r(x, y2);
-                        g += wc * scratch.g(x, y2);
-                        b += wc * scratch.b(x, y2);
+                        r += wc * scratch.r(x, y_down);
+                        g += wc * scratch.g(x, y_down);
+                        b += wc * scratch.b(x, y_down);
                         n += wc;
                     }
                 }
@@ -104,5 +105,4 @@ namespace Filter
 
         return dst;
     }
-
 }
