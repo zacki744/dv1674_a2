@@ -94,5 +94,5 @@ namespace Filter
 
     return *dst;  // Return the final blurred matrix
 }
-
+}
 
