@@ -5,6 +5,7 @@
 #include "matrix.hpp"
 #include "ppm.hpp"
 #include <iostream>  // For debugging purposes
+#include <unistd.h> // For sleep function
 
 namespace Filter {
 
@@ -38,7 +39,8 @@ void* blur_chunk(void* arg) {
     Matrix& dst = *(data->dst);
     Matrix& scratch = *(data->scratch);
     int radius = data->radius;
-
+    sleep(1); // For debugging purposes
+    printf("Thread: %d, Start row: %d, End row: %d\n", pthread_self(), data->start_row, data->end_row);
     // Horizontal blur pass
     for (int y = data->start_row; y < data->end_row; ++y) {
         for (int x = 0; x < dst.get_x_size(); ++x) {
@@ -150,6 +152,7 @@ Matrix blur(Matrix m, const int radius, int num_threads) {
         thread_data[i].radius = radius;
 
         // Create thread
+        sleep(1); // For debugging purposes
         pthread_create(&threads[i], nullptr, blur_chunk, &thread_data[i]);
     }
 
