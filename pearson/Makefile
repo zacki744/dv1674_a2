@@ -18,7 +18,7 @@ vector: vector.hpp vector.cpp
 	$(CXX) $(CXXFLAGS) -c vector.cpp -o vector.o
 
 verify: verify.c
-	gcc-13 verify.c -o verify
+	$(CC) verify.c -o verify
 
 clean:
 	rm -rf verify pearson *.o *.dSYM 2> /dev/null
