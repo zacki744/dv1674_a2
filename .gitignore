@@ -13,5 +13,5 @@ pearson_v1/pearson
 pearson_v1/valgrind_output
 pearson_v1/output_*
 pearson_v1/*.o
-*.ppt
+*.ppm
 *.data

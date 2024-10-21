@@ -4,7 +4,7 @@
 echo "NOTE: this script runs Valgrind with Memcheck, Callgrind, and Cachegrind for blur (multi-threaded version skipped)"
 
 status=0
-output_dir="test_output"
+output_dir="test_output_dino"
 mkdir -p "$output_dir"  # Ensure the output directory exists
 
 # Loop through image files
