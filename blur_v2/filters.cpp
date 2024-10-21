@@ -8,7 +8,6 @@ namespace Filter
 {
     namespace Gauss
     {
-        // Precompute Gaussian weights once for a given radius.
         std::vector<double> get_weights(int n)
         {
             std::vector<double> weights(n + 1);
@@ -22,13 +21,12 @@ namespace Filter
     }
 
     Matrix blur(Matrix m, const int radius) {
-    Matrix buffer = m;  // Use a buffer to avoid unnecessary copies
+    Matrix buffer = m;
     auto* src = &m;
     auto* dst = &buffer;
 
     std::vector<double> weights = Gauss::get_weights(radius);
 
-    // Horizontal blur pass
     for (int y = 0; y < src->get_y_size(); ++y) {
         for (int x = 0; x < src->get_x_size(); ++x) {
             double r = weights[0] * src->r(x, y);
@@ -59,9 +57,8 @@ namespace Filter
         }
     }
 
-    std::swap(src, dst);  // Swap buffers for the next pass
+    std::swap(src, dst);
 
-    // Vertical blur pass
     for (int x = 0; x < src->get_x_size(); ++x) {
         for (int y = 0; y < src->get_y_size(); ++y) {
             double r = weights[0] * src->r(x, y);
@@ -92,7 +89,6 @@ namespace Filter
         }
     }
 
-    return *dst;  // Return the final blurred matrix
+    return *dst;
 }
-
-
+}
