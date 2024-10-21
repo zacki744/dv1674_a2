@@ -15,7 +15,7 @@ do
     
     # Save both the output from the blur program and time measurements in a single file
     {
-        /usr/bin/time -v ./blur 15 "data/$image.ppm" "$output_dir/blur_${image}_seq.ppm"
+        /usr/bin/time -v ./blur_par 15 "data/$image.ppm" "$output_dir/blur_${image}_seq.ppm" 12
     } &> "$output_dir/${image}_output.txt"  # Capture both stdout and stderr
 
     echo "Execution details and output for $image.ppm saved to $output_dir/${image}_output.txt"
