@@ -1,167 +1,228 @@
-#include <pthread.h>
-#include <vector>
-#include <cmath>
+/*
+Author: David Holmqvist <daae19@student.bth.se>
+*/
+
 #include "filters.hpp"
 #include "matrix.hpp"
 #include "ppm.hpp"
-#include <iostream>  // For debugging purposes
-#include <unistd.h> // For sleep function
+#include <cmath>
+#include <pthread.h>
 
 namespace Filter {
 
-// Structure to hold data for each thread
-struct ThreadData {
-    Matrix* dst;             // Destination matrix
-    Matrix* scratch;         // Scratch matrix for intermediate results
-    std::vector<double>* weights; // Gaussian weights
-    int start_row;           // Starting row for the thread
-    int end_row;             // Ending row for the thread
-    int radius;              // Radius for Gaussian blur
-};
+    namespace Gauss {
 
-namespace Gauss {
-    void get_weights(int n, double *weights_out) {
-        for (int i = 0; i <= n; i++) {
-            double x = static_cast<double>(i) * max_x / n;
-            weights_out[i] = exp(-x * x * pi);
+        void get_weights(int n, double *weights_out) {
+            for (int i = 0; i <= n; i++) {
+                double x = static_cast<double>(i) * max_x / n;
+                weights_out[i] = exp(-x * x * pi);
+            }
         }
     }
-}
 
-// Clamp function to ensure values stay within bounds
-inline int clamp(int value, int min, int max) {
-    return std::max(min, std::min(value, max));
-}
+    // Structure to hold data needed by each thread during the blur operation
+    struct BlurTaskData {
+        Matrix* target_matrix;      // Pointer to the target matrix (either scratch or final)
+        unsigned char* red_channel; // Pointer to the red channel data
+        unsigned char* green_channel; // Pointer to the green channel data
+        unsigned char* blue_channel; // Pointer to the blue channel data
+        double* gaussian_weights;   // Pointer to the precomputed Gaussian weights
+        int blur_radius;            // The radius for the Gaussian blur
+        unsigned img_width;         // Image width (x_size)
+        unsigned img_height;        // Image height (y_size)
+        int row_start;              // Start row for the thread to process
+        int row_end;                // End row for the thread to process
+        bool horizontal_pass;       // Indicates if this is a horizontal pass or vertical pass
 
-// Function executed by each thread to process a chunk of the image
-void* blur_chunk(void* arg) {
-    ThreadData* data = static_cast<ThreadData*>(arg);
-    Matrix& dst = *(data->dst);
-    Matrix& scratch = *(data->scratch);
-    int radius = data->radius;
-    sleep(1); // For debugging purposes
-    printf("Thread: %d, Start row: %d, End row: %d\n", pthread_self(), data->start_row, data->end_row);
-    // Horizontal blur pass
-    for (int y = data->start_row; y < data->end_row; ++y) {
-        for (int x = 0; x < dst.get_x_size(); ++x) {
-            double w[Gauss::max_radius]{};
-            Gauss::get_weights(radius, w);
+        // Default constructor for safe initialization
+        BlurTaskData()
+            : target_matrix(nullptr), red_channel(nullptr), green_channel(nullptr), blue_channel(nullptr),
+            gaussian_weights(nullptr), blur_radius(0), img_width(0), img_height(0),
+            row_start(0), row_end(0), horizontal_pass(true) {}
 
-            double r = w[0] * dst.r(x, y);
-            double g = w[0] * dst.g(x, y);
-            double b = w[0] * dst.b(x, y);
-            double n = w[0];
+        // Parameterized constructor for initializing the task data
+        BlurTaskData(Matrix* matrix, unsigned char* R, unsigned char* G, 
+                    unsigned char* B, double* weights, int radius,
+                    unsigned width, unsigned height, int start_row, int end_row, bool is_horizontal)
+            : target_matrix(matrix), red_channel(R), green_channel(G), blue_channel(B),
+            gaussian_weights(weights), blur_radius(radius), 
+            img_width(width), img_height(height), 
+            row_start(start_row), row_end(end_row), horizontal_pass(is_horizontal) {}
+    };
 
-            // Apply Gaussian weights
-            for (int wi = 1; wi <= radius; wi++) {
-                double wc = w[wi];
-                
-                // Left neighbor
-                int x2 = x - wi;
-                if (x2 >= 0) {
-                    r += wc * dst.r(x2, y);
-                    g += wc * dst.g(x2, y);
-                    b += wc * dst.b(x2, y);
+    void blur_pixel(int x, int y, unsigned char* R, unsigned char* G, unsigned char* B, Matrix& matrix,
+                    const double* weights, int radius, int x_size, int y_size, bool is_horizontal) {
+        const int index = x + y * x_size;
+        if (index < 0 || index >= x_size * y_size) return;
+
+        double r = 0.0, g = 0.0, b = 0.0, n = 0.0;  // Declare once outside of loops
+        const double w0 = weights[0];
+
+        // Initialize with the center pixel
+        r = w0 * R[index];
+        g = w0 * G[index];
+        b = w0 * B[index];
+        n = w0;
+
+        if (is_horizontal) {
+            // Horizontal pass
+            for (int wi = 1; wi <= radius; ++wi) {
+                const double wc = weights[wi];
+
+                // Check left pixel
+                int x_left = x - wi;
+                if (x_left >= 0) {
+                    int left_index = x_left + y * x_size;
+                    r += wc * R[left_index];
+                    g += wc * G[left_index];
+                    b += wc * B[left_index];
                     n += wc;
                 }
-                
-                // Right neighbor
-                x2 = x + wi;
-                if (x2 < dst.get_x_size()) {
-                    r += wc * dst.r(x2, y);
-                    g += wc * dst.g(x2, y);
-                    b += wc * dst.b(x2, y);
+
+                // Check right pixel
+                int x_right = x + wi;
+                if (x_right < x_size) {
+                    int right_index = x_right + y * x_size;
+                    r += wc * R[right_index];
+                    g += wc * G[right_index];
+                    b += wc * B[right_index];
                     n += wc;
                 }
             }
-            // Store the blurred color values in the scratch matrix
-            scratch.r(x, y) = r / n;
-            scratch.g(x, y) = g / n;
-            scratch.b(x, y) = b / n;
-        }
-    }
+        } else {
+            // Vertical pass
+            for (int wi = 1; wi <= radius; ++wi) {
+                const double wc = weights[wi];
 
-    // Vertical blur pass
-    for (int x = 0; x < dst.get_x_size(); ++x) {
-        for (int y = data->start_row; y < data->end_row; ++y) {
-            double w[Gauss::max_radius]{};
-            Gauss::get_weights(radius, w);
-
-            double r = w[0] * scratch.r(x, y);
-            double g = w[0] * scratch.g(x, y);
-            double b = w[0] * scratch.b(x, y);
-            double n = w[0];
-
-            // Apply Gaussian weights
-            for (int wi = 1; wi <= radius; wi++) {
-                double wc = w[wi];
-                
-                // Upper neighbor
-                int y2 = y - wi;
-                if (y2 >= 0) {
-                    r += wc * scratch.r(x, y2);
-                    g += wc * scratch.g(x, y2);
-                    b += wc * scratch.b(x, y2);
+                // Check upper pixel
+                int y_up = y - wi;
+                if (y_up >= 0) {
+                    int up_index = x + y_up * x_size;
+                    r += wc * R[up_index];
+                    g += wc * G[up_index];
+                    b += wc * B[up_index];
                     n += wc;
                 }
-                
-                // Lower neighbor
-                y2 = y + wi;
-                if (y2 < dst.get_y_size()) {
-                    r += wc * scratch.r(x, y2);
-                    g += wc * scratch.g(x, y2);
-                    b += wc * scratch.b(x, y2);
+
+                // Check lower pixel
+                int y_down = y + wi;
+                if (y_down < y_size) {
+                    int down_index = x + y_down * x_size;
+                    r += wc * R[down_index];
+                    g += wc * G[down_index];
+                    b += wc * B[down_index];
                     n += wc;
                 }
             }
-            // Store the final blurred color values in the destination matrix
-            dst.r(x, y) = r / n;
-            dst.g(x, y) = g / n;
-            dst.b(x, y) = b / n;
         }
+
+        // Assign final blurred value
+        matrix.r(index) = r / n;
+        matrix.g(index) = g / n;
+        matrix.b(index) = b / n;
+    }
+    void* blur_pass(void* arg) {
+        auto* data = static_cast<BlurTaskData*>(arg);
+        unsigned char* R = data->red_channel;
+        unsigned char* G = data->green_channel;
+        unsigned char* B = data->blue_channel;
+        double* weights = data->gaussian_weights;
+        Matrix* matrix = data->target_matrix;
+        const int radius = data->blur_radius;
+        const unsigned x_size = data->img_width;
+        const unsigned y_size = data->img_height;
+        const int start = data->row_start;
+        const int end = data->row_end;
+        const bool is_horizontal = data->horizontal_pass;
+
+        if (is_horizontal) {
+            for (int x = start; x < end; ++x) {
+                for (int y = 0; y < y_size; ++y) {
+                    blur_pixel(x, y, R, G, B, *matrix, weights, radius, x_size, y_size, true);
+                }
+            }
+        } else {
+            for (int y = start; y < end; ++y) {
+                for (int x = 0; x < x_size; ++x) {
+                    blur_pixel(x, y, R, G, B, *matrix, weights, radius, x_size, y_size, false);
+                }
+            }
+        }
+
+        return nullptr;
     }
 
-    return nullptr; // Thread has finished execution
-}
+    // The blur function itself
+    Matrix blur(Matrix m, const int radius, int num_threads) {
+        Matrix scratch(PPM::max_dimension);
+        auto dst = m;
 
-// Main blur function that creates threads and manages blurring
-Matrix blur(Matrix m, const int radius, int num_threads) {
-    Matrix scratch{PPM::max_dimension}; // Intermediate results
-    Matrix dst = m; // Copy of the original matrix
+        // Get image dimensions
+        const unsigned x_size = dst.get_x_size();
+        const unsigned y_size = dst.get_y_size();
 
-    pthread_t threads[num_threads]; // Thread handles
-    ThreadData thread_data[num_threads]; // Thread data for each thread
+        // Calculate Gaussian weights beforehand
+        double weights[Gauss::max_radius] = {};
+        Gauss::get_weights(radius, weights);
 
-    // Get total rows to process
-    int total_rows = dst.get_y_size();
-    int rows_per_thread = total_rows / num_threads;
-    int extra_rows = total_rows % num_threads;
+        // Directly access R, G, and B channels for optimization
+        auto dst_R = dst.get_R();
+        auto dst_G = dst.get_G();
+        auto dst_B = dst.get_B();
+        auto scr_R = scratch.get_R();
+        auto scr_G = scratch.get_G();
+        auto scr_B = scratch.get_B();
 
-    // Initialize and create threads
-    for (int i = 0; i < num_threads; ++i) {
-        thread_data[i].start_row = i * rows_per_thread;
-        thread_data[i].end_row = (i == num_threads - 1) ? (total_rows) : (thread_data[i].start_row + rows_per_thread);
-        
-        // Ensure row indices are within bounds
-        thread_data[i].start_row = clamp(thread_data[i].start_row, 0, total_rows);
-        thread_data[i].end_row = clamp(thread_data[i].end_row, 0, total_rows);
+        // Introduce multithreading
+        pthread_t threads[num_threads];
+        BlurTaskData thread_data[num_threads];
+        int rows = x_size / num_threads;
 
-        // Set data for the thread
-        thread_data[i].dst = &dst;
-        thread_data[i].scratch = &scratch;
-        thread_data[i].radius = radius;
+        // Horizontal blurring
+        for (int i = 0; i < num_threads; i++) {
+            thread_data[i] = {
+                &scratch,
+                dst_R,
+                dst_G,
+                dst_B,
+                weights,
+                radius,
+                x_size,
+                y_size,
+                i * rows,
+                static_cast<int>(i == num_threads - 1 ? x_size : (i + 1) * rows), // Ensure all rows are processed
+                true,
+            };
+            pthread_create(&threads[i], nullptr, blur_pass, &thread_data[i]);
+        }
 
-        // Create thread
-        sleep(1); // For debugging purposes
-        pthread_create(&threads[i], nullptr, blur_chunk, &thread_data[i]);
+        for (int i = 0; i < num_threads; i++) {
+            pthread_join(threads[i], nullptr);
+        }
+
+        // Vertical blurring
+        for (int i = 0; i < num_threads; i++) {
+            thread_data[i] = {
+                &dst,
+                scr_R,
+                scr_G,
+                scr_B,
+                weights,
+                radius,
+                x_size,
+                y_size,
+                i * rows,
+                static_cast<int>(i == num_threads - 1 ? y_size : (i + 1) * rows), // Ensure all rows are processed
+                false
+            };
+            pthread_create(&threads[i], nullptr, blur_pass, &thread_data[i]);
+        }
+
+        for (int i = 0; i < num_threads; i++) {
+            pthread_join(threads[i], nullptr);
+        }
+
+        return dst;
     }
-
-    // Wait for all threads to finish
-    for (int i = 0; i < num_threads; ++i) {
-        pthread_join(threads[i], nullptr);
-    }
-
-    return dst; // Return the blurred image
-}
 
 } // namespace Filter

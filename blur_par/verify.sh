@@ -20,7 +20,6 @@ do
             echo "${grean}succes: Output data for image $image.ppm with $thread thread(s) is congruent"
         fi
 
-        rm "./data_o/blur_${image}_par.ppm"
     done
 done
 

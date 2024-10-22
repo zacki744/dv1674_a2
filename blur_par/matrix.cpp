@@ -37,12 +37,9 @@ Matrix::Matrix(unsigned dimension)
     , y_size { dimension }
     , color_max { 0 }
 {
-    std::fill(R, R + (x_size * y_size), 0); // Initialize to zero
-    std::fill(G, G + (x_size * y_size), 0);
-    std::fill(B, B + (x_size * y_size), 0);
 }
 
-Matrix::Matrix(const Matrix& other)
+Matrix::Matrix(Matrix& other)
     : R { new unsigned char[other.x_size * other.y_size] }
     , G { new unsigned char[other.x_size * other.y_size] }
     , B { new unsigned char[other.x_size * other.y_size] }
@@ -52,8 +49,9 @@ Matrix::Matrix(const Matrix& other)
 {
     for (auto x { 0 }; x < x_size; x++) {
         for (auto y { 0 }; y < y_size; y++) {
-            auto &r_val { r(x, y) }, &g_val { g(x, y) }, &b_val { b(x, y) };
-            auto other_r_val { other.r(x, y) }, other_g_val { other.g(x, y) }, other_b_val { other.b(x, y) };
+            auto index {x + y * x_size};
+            auto &r_val { r(index) }, &g_val { g(index) }, &b_val { b(index) };
+            auto other_r_val { other.r(index) }, other_g_val { other.g(index) }, other_b_val { other.b(index) };
 
             r_val = other_r_val;
             g_val = other_g_val;
@@ -62,7 +60,7 @@ Matrix::Matrix(const Matrix& other)
     }
 }
 
-Matrix& Matrix::operator=(const Matrix other)
+Matrix& Matrix::operator=(Matrix other)
 {
     if (this == &other) {
         return *this;
@@ -80,8 +78,9 @@ Matrix& Matrix::operator=(const Matrix other)
 
     for (auto x { 0 }; x < x_size; x++) {
         for (auto y { 0 }; y < y_size; y++) {
-            auto &r_val { r(x, y) }, &g_val { g(x, y) }, &b_val { b(x, y) };
-            auto other_r_val { other.r(x, y) }, other_g_val { other.g(x, y) }, other_b_val { other.b(x, y) };
+            auto index {x + y * x_size};
+            auto &r_val { r(index) }, &g_val { g(index) }, &b_val { b(index) };
+            auto other_r_val { other.r(index) }, other_g_val { other.g(index) }, other_b_val { other.b(index) };
 
             r_val = other_r_val;
             g_val = other_g_val;
@@ -125,47 +124,49 @@ unsigned Matrix::get_color_max() const
     return color_max;
 }
 
-unsigned char const* Matrix::get_R() const
+//5 Deleted const in order to allow the R, G, and B to be accessed directly for performing blurring operation
+unsigned char* Matrix::get_R()
 {
     return R;
 }
 
-unsigned char const* Matrix::get_G() const
+unsigned char* Matrix::get_G()
 {
     return G;
 }
 
-unsigned char const* Matrix::get_B() const
+unsigned char* Matrix::get_B()
 {
     return B;
 }
 
-unsigned char Matrix::r(unsigned x, unsigned y) const
+//4 Index is being pre-calculated in the loop and then used to access values for colors
+unsigned char Matrix::r(unsigned index) const
 {
-    return R[y * x_size + x];
+    return R[index];
 }
 
-unsigned char Matrix::g(unsigned x, unsigned y) const
+unsigned char Matrix::g(unsigned index) const
 {
-    return G[y * x_size + x];
+    return G[index];
 }
 
-unsigned char Matrix::b(unsigned x, unsigned y) const
+unsigned char Matrix::b(unsigned index) const
 {
-    return B[y * x_size + x];
+    return B[index];
 }
 
-unsigned char& Matrix::r(unsigned x, unsigned y)
+unsigned char& Matrix::r(unsigned index)
 {
-    return R[y * x_size + x];
+    return R[index];
 }
 
-unsigned char& Matrix::g(unsigned x, unsigned y)
+unsigned char& Matrix::g(unsigned index)
 {
-    return G[y * x_size + x];
+    return G[index];
 }
 
-unsigned char& Matrix::b(unsigned x, unsigned y)
+unsigned char& Matrix::b(unsigned index)
 {
-    return B[y * x_size + x];
+    return B[index];
 }
