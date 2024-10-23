@@ -4,7 +4,7 @@
 echo "NOTE: this script captures output and measures execution time for the pearson program (pearson_par is not yet implemented)"
 
 status=0
-output_dir="time_output"
+output_dir="time_output_2"
 mkdir -p "$output_dir"  # Ensure the output directory exists
 
 for size in 128 256 512 1024

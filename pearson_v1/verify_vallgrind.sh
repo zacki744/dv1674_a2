@@ -9,14 +9,6 @@ mkdir -p "$output_dir"  # Ensure the output directory exists
 
 for size in 128 256 512 1024
 do
-    # Run Memcheck
-    echo "Running Valgrind Memcheck on pearson with data/$size.data"
-    valgrind --tool=memcheck --leak-check=full --show-leak-kinds=all --log-file="$output_dir/${size}_memcheck.txt" ./pearson "data/$size.data" "$output_dir/${size}_seq.data"
-    echo "Done running Valgrind Memcheck on pearson with data/$size.data"
-    
-    # Remove the temporary output file to avoid clutter
-    rm "$output_dir/${size}_seq.data"
-    
     # Run Callgrind
     echo "Running Valgrind Callgrind on pearson with data/$size.data"
     valgrind --tool=callgrind --callgrind-out-file="$output_dir/${size}_callgrind.out" ./pearson "data/$size.data" "$output_dir/${size}_seq.data"
