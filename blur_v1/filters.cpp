@@ -8,7 +8,6 @@ namespace Filter
 {
     namespace Gauss
     {
-        // Precompute Gaussian weights once for a given radius.
         std::vector<double> get_weights(int n)
         {
             std::vector<double> weights(n + 1);
@@ -26,10 +25,8 @@ namespace Filter
         Matrix scratch{PPM::max_dimension};
         auto dst{m};
 
-        // Precompute Gaussian weights once.
         std::vector<double> weights = Gauss::get_weights(radius);
 
-        // Horizontal blur pass
         for (int y = 0; y < dst.get_y_size(); ++y)
         {
             for (int x = 0; x < dst.get_x_size(); ++x)
@@ -39,7 +36,7 @@ namespace Filter
                 double b = weights[0] * dst.b(x, y);
                 double n = weights[0];
 
-                // Process neighboring pixels horizontally.
+
                 for (int wi = 1; wi <= radius; ++wi)
                 {
                     double wc = weights[wi];
@@ -66,7 +63,6 @@ namespace Filter
             }
         }
 
-        // Vertical blur pass
         for (int x = 0; x < dst.get_x_size(); ++x)
         {
             for (int y = 0; y < dst.get_y_size(); ++y)
@@ -76,7 +72,6 @@ namespace Filter
                 double b = weights[0] * scratch.b(x, y);
                 double n = weights[0];
 
-                // Process neighboring pixels vertically.
                 for (int wi = 1; wi <= radius; ++wi)
                 {
                     double wc = weights[wi];
