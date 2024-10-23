@@ -59,15 +59,17 @@ inline double& Vector::operator[](unsigned i)
 double Vector::mean() const
 {
     if (size == 0) return 0.0;
+
     double sum = 0;
     const double* data_ptr = data;
-
     unsigned i = 0;
+    
     for (; i + 3 < size; i += 4)
     {
         sum += data_ptr[i] + data_ptr[i + 1] +
                data_ptr[i + 2] + data_ptr[i + 3];
     }
+
     for (; i < size; ++i)
     {
         sum += data_ptr[i];
@@ -78,7 +80,7 @@ double Vector::mean() const
 
 double Vector::magnitude() const
 {
-    return std::sqrt(dot(*this));
+    return std::sqrt(dot(*this)); 
 }
 
 Vector Vector::operator/(double div)
@@ -122,6 +124,7 @@ double Vector::dot(Vector rhs) const
     const double* rhs_data = rhs.data;
 
     unsigned i = 0;
+    
     for (; i + 3 < size; i += 4)
     {
         result += lhs_data[i] * rhs_data[i] +
@@ -129,7 +132,7 @@ double Vector::dot(Vector rhs) const
                   lhs_data[i + 2] * rhs_data[i + 2] +
                   lhs_data[i + 3] * rhs_data[i + 3];
     }
-
+    
     for (; i < size; ++i)
     {
         result += lhs_data[i] * rhs_data[i];
