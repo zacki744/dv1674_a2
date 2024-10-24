@@ -7,32 +7,22 @@ status=0
 output_dir="valgrind_output"
 mkdir -p "$output_dir"  # Ensure the output directory exists
 
-for size in 128 256 512 1024
+for thread in 1 2 4 8 16 32
 do
-    # Run Memcheck
-    echo "Running Valgrind Memcheck on pearson with data/$size.data"
-    valgrind --tool=memcheck --leak-check=full --show-leak-kinds=all --log-file="$output_dir/${size}_memcheck.txt" ./pearson "data/$size.data" "$output_dir/${size}_seq.data"
-    echo "Done running Valgrind Memcheck on pearson with data/$size.data"
-    
-    # Remove the temporary output file to avoid clutter
-    rm "$output_dir/${size}_seq.data"
-    
-    # Run Callgrind
-    echo "Running Valgrind Callgrind on pearson with data/$size.data"
-    valgrind --tool=callgrind --callgrind-out-file="$output_dir/${size}_callgrind.out" ./pearson "data/$size.data" "$output_dir/${size}_seq.data"
-    callgrind_annotate "$output_dir/${size}_callgrind.out" > "$output_dir/${size}_callgrind_output.txt"
-    echo "Done running Valgrind Callgrind on pearson with data/$size.data"
-    
-    # Remove the temporary output file to avoid clutter
-    rm "$output_dir/${size}_seq.data"
+    for size in 128 256 512 1024
+    do
+        # Run Valgrind Callgrind
+        echo "Running Valgrind Callgrind on pearson with data/$size.data and $thread threads"
+        valgrind --tool=callgrind --callgrind-out-file="$output_dir/${size}_${thread}_callgrind.out" ./pearson_par "data/$size.data" "$output_dir/${size}_${thread}_par.data" $thread
+        echo "Done running Valgrind Callgrind on pearson with data/$size.data and $thread threads"
+        # Condensed Cachegrind output using cg_annotate
+        echo "Generating condensed Callgrind output for $size.data with $thread threads"
+        callgrind_annotate "$output_dir/${size}_${thread}_callgrind.out" > "$output_dir/${size}_${thread}_callgrind_output.txt"
+        echo "Done generating condensed Callgrind output for $size.data with $thread threads"
 
-    # Run Cachegrind
-    echo "Running Valgrind Cachegrind on pearson with data/$size.data"
-    valgrind --tool=cachegrind --cachegrind-out-file="$output_dir/${size}_cachegrind.out" ./pearson "data/$size.data" "$output_dir/${size}_seq.data"
-    echo "Done running Valgrind Cachegrind on pearson with data/$size.data"
-    
-    # Remove the temporary output file to avoid clutter
-    rm "$output_dir/${size}_seq.data"
+        # Remove the temporary output and res file to avoid clutter
+        rm "$output_dir/${size}_${thread}_par.data" "$output_dir/${size}_${thread}_callgrind.out"
+    done
 done
 
 exit $status

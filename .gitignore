@@ -4,8 +4,10 @@
 pearson/output_*
 pearson/valgrind_*
 pearson/pearson
+pearson/pearson_par
 blur/test_*
 blur/blur
+blur/blur_par
 blur/valgrind_output
 callgrind.*
 .vscode

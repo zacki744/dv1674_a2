@@ -4,7 +4,7 @@
 echo "NOTE: this script relies on the binary pearson to exist (pearson_par is not yet implemented)"
 
 status=0
-output_dir="output_data_1"
+output_dir="output_data"
 mkdir -p "$output_dir"  # Ensure the output directory exists
 red=$(tput setaf 1)
 reset=$(tput sgr0)

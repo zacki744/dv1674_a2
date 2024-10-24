@@ -6,6 +6,8 @@ Author: David Holmqvist <daae19@student.bth.se>
 #include <iostream>
 #include <cmath>
 #include <vector>
+#include <algorithm>
+#include <stdexcept>
 
 Vector::Vector()
     : size{0}, data{nullptr}
@@ -14,12 +16,7 @@ Vector::Vector()
 
 Vector::~Vector()
 {
-    if (data)
-    {
-        delete[] data;
-    }
-
-    size = 0;
+    delete[] data;
 }
 
 Vector::Vector(unsigned size)
@@ -27,18 +24,16 @@ Vector::Vector(unsigned size)
 {
 }
 
-Vector::Vector(unsigned size, double *data)
-    : size{size}, data{data}
+Vector::Vector(unsigned size, double* data)
+    : size{size}, data{new double[size]}
 {
+    std::copy(data, data + size, this->data);
 }
 
-Vector::Vector(const Vector &other)
-    : Vector{other.size}
+Vector::Vector(const Vector& other)
+    : size{other.size}, data{new double[other.size]}
 {
-    for (auto i{0}; i < size; i++)
-    {
-        data[i] = other.data[i];
-    }
+    std::copy(other.data, other.data + size, data);
 }
 
 unsigned Vector::get_size() const
@@ -46,46 +41,58 @@ unsigned Vector::get_size() const
     return size;
 }
 
-double *Vector::get_data()
+double* Vector::get_data()
 {
     return data;
 }
 
-double Vector::operator[](unsigned i) const
+inline double Vector::operator[](unsigned i) const
 {
     return data[i];
 }
 
-double &Vector::operator[](unsigned i)
+inline double& Vector::operator[](unsigned i)
 {
     return data[i];
 }
 
 double Vector::mean() const
 {
-    double sum{0};
+    if (size == 0) return 0.0;
+    double sum = 0;
+    const double* data_ptr = data;
 
-    for (auto i{0}; i < size; i++)
+    unsigned i = 0;
+    for (; i + 3 < size; i += 4)
     {
-        sum += data[i];
+        sum += data_ptr[i] + data_ptr[i + 1] +
+               data_ptr[i + 2] + data_ptr[i + 3];
+    }
+    for (; i < size; ++i)
+    {
+        sum += data_ptr[i];
     }
 
-    return sum / static_cast<double>(size);
+    return sum / size;
 }
 
 double Vector::magnitude() const
 {
-    auto dot_prod{dot(*this)};
-    return std::sqrt(dot_prod);
+    return std::sqrt(dot(*this));
 }
 
 Vector Vector::operator/(double div)
 {
-    auto result{*this};
+    if (div == 0.0)
+        throw std::runtime_error("Division by zero.");
 
-    for (auto i{0}; i < size; i++)
+    Vector result(size);
+    const double* src_data = data;
+    double* dest_data = result.data;
+
+    for (unsigned i = 0; i < size; ++i)
     {
-        result[i] /= div;
+        dest_data[i] = src_data[i] / div;
     }
 
     return result;
@@ -93,11 +100,13 @@ Vector Vector::operator/(double div)
 
 Vector Vector::operator-(double sub)
 {
-    auto result{*this};
+    Vector result(size);
+    const double* src_data = data;
+    double* dest_data = result.data;
 
-    for (auto i{0}; i < size; i++)
+    for (unsigned i = 0; i < size; ++i)
     {
-        result[i] -= sub;
+        dest_data[i] = src_data[i] - sub;
     }
 
     return result;
@@ -105,11 +114,25 @@ Vector Vector::operator-(double sub)
 
 double Vector::dot(Vector rhs) const
 {
-    double result{0};
+    if (size != rhs.size)
+        throw std::invalid_argument("Vectors must be of the same size.");
 
-    for (auto i{0}; i < size; i++)
+    double result = 0;
+    const double* lhs_data = data;
+    const double* rhs_data = rhs.data;
+
+    unsigned i = 0;
+    for (; i + 3 < size; i += 4)
     {
-        result += data[i] * rhs[i];
+        result += lhs_data[i] * rhs_data[i] +
+                  lhs_data[i + 1] * rhs_data[i + 1] +
+                  lhs_data[i + 2] * rhs_data[i + 2] +
+                  lhs_data[i + 3] * rhs_data[i + 3];
+    }
+
+    for (; i < size; ++i)
+    {
+        result += lhs_data[i] * rhs_data[i];
     }
 
     return result;
